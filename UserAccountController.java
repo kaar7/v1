@@ -53,7 +53,7 @@ public class UserAccountController {
 	
 	/*
 	 * Registration
-	 */
+	
 	@RequestMapping(value="/register", method=RequestMethod.GET)
 	public ModelAndView displayRegistration(ModelAndView modelAndView, User user) {
 		modelAndView.addObject("user", user);
@@ -64,11 +64,14 @@ public class UserAccountController {
      * 	generating OTP 
      */
 	@RequestMapping(value="/register", method=RequestMethod.POST)
-	public ModelAndView registerUser(ModelAndView modelAndView, User user) throws IOException, UnirestException {		
-		User existingUser = userRepository.findByQidIgnoreCase(user.getQid());
+	public ResponseEntity<string> registerUser(User user) throws IOException, UnirestException {
+		CONFLICT
+		ResponseEntity<string> result=new ResponseEntity<string>();
+	User existingUser = userRepository.findByQidIgnoreCase(user.getQid());
 		if(existingUser != null) {
-			modelAndView.addObject("message","This Qid already exists!");
-			modelAndView.setViewName("error");
+			
+result=ResponseEntity.status(HttpStatus.CONFLICT).body("This Qid already exists!");
+
 		} else {
 			user.setPassword(encoder.encode(user.getPassword()));
 			userRepository.save(user);			
@@ -78,14 +81,10 @@ public class UserAccountController {
 	
 		//	+"http://localhost:8082/confirm-account?token="+confirmationToken.getConfirmationToken());
 			
-		    HttpResponse<String> response = Unirest.post("https://telesign-telesign-send-sms-verification-code-v1.p.rapidapi.com/sms-verification-code?phoneNumber="+user.getPhone()+"&verifyCode="+confirmationToken.getConfirmationToken())
-		    		.header("x-rapidapi-host", "telesign-telesign-send-sms-verification-code-v1.p.rapidapi.com")
-		    		.header("x-rapidapi-key", "35e6e42600msh5b4db7a605d60c6p10a1adjsnf6b91daff5f8")
-		    		.header("content-type", "application/x-www-form-urlencoded")
-		    		.asString();  
-		    
-			modelAndView.addObject("qid", user.getQid());	
+		 
 			modelAndView.setViewName("successfulRegisteration");
+			result=ResponseEntity.status(HttpStatus.CREATED).body("message:successfulRegisteration!");
+
 		}
 		
 		return modelAndView;
@@ -116,39 +115,38 @@ public class UserAccountController {
 
    /*
     * Login 
-    */
+   
 	@RequestMapping(value="/login", method=RequestMethod.GET)
 	public ModelAndView displayLogin(ModelAndView modelAndView, User user) {
 		modelAndView.addObject("user", user);
 		modelAndView.setViewName("login");
 		return modelAndView;
-	}
+	} */
 
 	@RequestMapping(value="/login", method=RequestMethod.POST)
-	public ModelAndView loginUser(ModelAndView modelAndView, User user) {
-		
+	public ResponseEntity<string> loginUser( User user) {
+		ResponseEntity<string> result=new ResponseEntity<string>();
 		User existingUser = userRepository.findByQidIgnoreCase(user.getQid());
 		if(existingUser != null) {
 		
 			if (encoder.matches(user.getPassword(), existingUser.getPassword())){
-				modelAndView.addObject("message", "Successfully logged in!");
-				modelAndView.setViewName("successLogin");
+				result=ResponseEntity.status(HttpStatus.OK).body("message:Successfully logged in!");
+
 			} else {
-				modelAndView.addObject("message", "Incorrect password. Try again.");
-				modelAndView.setViewName("login");
+				result=ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("message:Incorrect password. Try again.");
+
 			}
 		} else {	
-			modelAndView.addObject("message", "The Qid provided does not exist!");
-			modelAndView.setViewName("login");
 
+				result=ResponseEntity.status(HttpStatus.NOT_FOUND).body("message", "The Qid provided does not exist!");
 		}
 		
-		return modelAndView;
+		return result;
 	}
 	
 	 /*
 	  * Resetting Password
-	  */
+	 
 	@RequestMapping(value="/forgot-password", method=RequestMethod.GET)
 	public ModelAndView displayResetPassword(ModelAndView modelAndView, User user) {
 		modelAndView.addObject("user", user);
@@ -161,7 +159,9 @@ public class UserAccountController {
 	 */
 	
 	@RequestMapping(value="/forgot-password", method=RequestMethod.POST)
-	public ModelAndView forgotUserPassword(ModelAndView modelAndView, User user) throws UnirestException {
+	public ResponseEntity<string> forgotUserPassword(User user) throws UnirestException {
+				ResponseEntity<string> result=new ResponseEntity<string>();
+
 		User existingUser = userRepository.findByQidIgnoreCase(user.getQid());
 		if(existingUser != null) {
 			ConfirmationToken confirmationToken = new ConfirmationToken(existingUser);
@@ -170,53 +170,51 @@ public class UserAccountController {
 	//	"To complete the password reset process, please click here: "
 	//		+"http://localhost:8082/confirm-reset?token="+confirmationToken.getConfirmationToken());
 			
+	
+		result=ResponseEntity.status(HttpStatus.OK).body("message:Request to reset password received. Check your inbox for the reset link.");
+
 			
-			 HttpResponse<String> response = Unirest.post("https://telesign-telesign-send-sms-verification-code-v1.p.rapidapi.com/sms-verification-code?phoneNumber="+user.getPhone()+"&verifyCode="+confirmationToken.getConfirmationToken())
-			    		.header("x-rapidapi-host", "telesign-telesign-send-sms-verification-code-v1.p.rapidapi.com")
-			    		.header("x-rapidapi-key", "sHr1Al5YeEmshTbA3Qm2YPfrzrSZp1x8MKujsnCJrMsalveWcY")
-			    		.header("content-type", "application/x-www-form-urlencoded")
-			    		.asString();   
-			
-			modelAndView.addObject("message", "Request to reset password received. Check your inbox for the reset link.");
-			modelAndView.setViewName("successForgotPassword");
 
 		} else {	
-			modelAndView.addObject("message", "This email does not exist!");
-			modelAndView.setViewName("error");
+					result=ResponseEntity.status(HttpStatus.NOT_FOUND).body("message:This email does not exist!");
+
 		}
 		
-		return modelAndView;
+		return result;
 	}
 
     /*
      * OTP verification
      */
 	@RequestMapping(value="/confirm-reset", method= {RequestMethod.GET, RequestMethod.POST})
-	public ModelAndView validateResetToken(ModelAndView modelAndView, @RequestParam("token")String confirmationToken)
+	public ResponseEntity<string> validateResetToken( @RequestParam("token")String confirmationToken)
 	{
+		ResponseEntity<string> result=new ResponseEntity<string>();
+
 		ConfirmationToken token = confirmationTokenRepository.findByConfirmationToken(confirmationToken);
 		
 		if(token != null) {
 			User user = userRepository.findByQidIgnoreCase(token.getUser().getQid());
 			user.setEnabled(true);
 			userRepository.save(user);
-			modelAndView.addObject("user",user);
-			modelAndView.addObject("qid", user.getQid());
-			modelAndView.setViewName("resetPassword");
+			
+	result=ResponseEntity.status(HttpStatus.OK).body(user.getQid());
+
 		} else {
-			modelAndView.addObject("message", "The link is invalid or broken!");
-			modelAndView.setViewName("error");
+	result=ResponseEntity.status(HttpStatus.BAD_REQUEST).body("message:The link is invalid or broken!");
+
 		}
 		
-		return modelAndView;
+		return result;
 	}	
 
 	/**
 	 * Receive the token from the link sent via phone and display form to reset password
 	 */
 	@RequestMapping(value = "/reset-password", method = RequestMethod.POST)
-	public ModelAndView resetUserPassword(ModelAndView modelAndView, User user) {
-		
+	public ResponseEntity<string> resetUserPassword(User user) {
+				ResponseEntity<string> result=new ResponseEntity<string>();
+
 		if(user.getQid() != null) {
 		
 			User tokenUser = userRepository.findByQidIgnoreCase(user.getQid());
@@ -224,14 +222,14 @@ public class UserAccountController {
 			tokenUser.setPassword(encoder.encode(user.getPassword()));
 			
 			userRepository.save(tokenUser);
-			modelAndView.addObject("message", "Password successfully reset. You can now log in with the new credentials.");
-			modelAndView.setViewName("successResetPassword");
+			
+			result=ResponseEntity.status(HttpStatus.OK).body("message:assword successfully reset. You can now log in with the new credentials.");
+
 		} else {
-			modelAndView.addObject("message","The link is invalid or broken!");
-			modelAndView.setViewName("error");
+	result=ResponseEntity.status(HttpStatus.BAD_REQUEST).body("message:The link is invalid or broken!");
 		}
 		
-		return modelAndView;
+		return result;
 	}
 
 	@RequestMapping(value="/logout", method = RequestMethod.GET)
